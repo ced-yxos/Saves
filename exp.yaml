@@ -1,0 +1,54 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backup-proxy
+  labels:
+    app: backup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backup
+  template:
+    metadata:
+      labels:
+        app: backup
+    spec:
+      imagePullSecrets:
+      - name: repo-key  # The secret for pulling the image from a private registry
+      containers:
+      - name: proxy-container
+        image: yxos/proxy
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5555  # HTTP port
+        - containerPort: 1935  # RTMP port
+        #resources:
+          #requests:
+            #memory: "10Mi"   # Quantité minimale de mémoire demandée
+            #cpu: "50m"       # Quantité minimale de CPU demandée (500 milliCPU = 0.5 vCPU)
+          #limits:
+            #memory: "10Mi"   # Limite maximale de mémoire allouée
+            #cpu: "55m"      # Limite maximale de CPU allouée (1 vCPU)
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: backup-service
+spec:
+  selector:
+    app: backup
+  type: NodePort
+  ports:
+  - name: rtmp
+    protocol: TCP
+    port: 1935
+    targetPort: 1935
+    nodePort: 31936  # NodePort for RTMP
+  - name: http
+    protocol: TCP
+    port: 5555
+    targetPort: 5555
+    nodePort: 31556  # NodePort for HTTP

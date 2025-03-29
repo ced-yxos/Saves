@@ -1,0 +1,68 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: tc-backup-proxy
+  labels:
+    app: backup
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: backup
+  template:
+    metadata:
+      labels:
+        app: backup
+    spec:
+      imagePullSecrets:
+      - name: repo-key  # The secret for pulling the image from a private registry
+      containers:
+      - name: proxy-container
+        image: yxos/proxy
+        imagePullPolicy: Always
+        ports:
+        - containerPort: 5555  # HTTP port
+        - containerPort: 1935  # RTMP port
+        securityContext:
+          privileged: true  # Allows full access to host resources (includes NET_ADMIN)
+          capabilities:
+            add:
+              - NET_ADMIN    # Capability to allow use of tc and other network tools
+        # Uncomment this if the image does not include tc
+        # lifecycle:
+        #   postStart:
+        #     exec:
+        #       command:
+        #         - /bin/sh
+        #         - -c
+        #         - |
+        #           apt-get update && apt-get install -y iproute2  # Install tc if not already included in the image
+        #resources:
+          #requests:
+            #memory: "10Mi"   # Minimum memory requested
+            #cpu: "50m"       # Minimum CPU requested (500 milliCPU = 0.5 vCPU)
+          #limits:
+            #memory: "10Mi"   # Maximum memory allowed
+            #cpu: "55m"      # Maximum CPU allowed (1 vCPU)
+
+---
+
+apiVersion: v1
+kind: Service
+metadata:
+  name: tc-backup-service
+spec:
+  selector:
+    app: backup
+  type: NodePort
+  ports:
+  - name: rtmp
+    protocol: TCP
+    port: 1935
+    targetPort: 1935
+    nodePort: 31936  # NodePort for RTMP
+  - name: http
+    protocol: TCP
+    port: 5555
+    targetPort: 5555
+    nodePort: 31556  # NodePort for HTTP
